@@ -529,7 +529,7 @@ void *TrainModelThread(void *id) {
           real q = 0;
           for (c = 0; c < layer1_size; c++) f += syn0[c + l1] * syn1neg[c + l2];
           if (f > MAX_EXP) q = 1;//g = (label - 1) * alpha;
-          else if (f < -MAX_EXP) q = 0;//g = (label - 0) * alpha;
+          else if (f < -MAX_EXP) q = 0.1;//g = (label - 0) * alpha;
           else q = expTable[(int)((f + MAX_EXP) * (EXP_TABLE_SIZE / MAX_EXP / 2))];
           //g = (label - expTable[(int)((f + MAX_EXP) * (EXP_TABLE_SIZE / MAX_EXP / 2))]) * alpha;
           g = label - q;
