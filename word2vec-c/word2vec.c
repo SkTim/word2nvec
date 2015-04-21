@@ -141,6 +141,11 @@ int VocabCompare(const void *a, const void *b) {
     return ((struct vocab_word *)b)->cn - ((struct vocab_word *)a)->cn;
 }
 
+double sigmoid(double x){
+  double s = 2.0 / (1 + exp(-1 * x));
+  return s;
+}
+
 // Sorts the vocabulary by frequency using word counts
 void SortVocab() {
   int a, size;
