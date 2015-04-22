@@ -142,7 +142,7 @@ int VocabCompare(const void *a, const void *b) {
 }
 
 double sigmoid(double x){
-  double s = 2.0 / (1 + exp(-1 * x));
+  double s = 2 * expTable[(int)((x + MAX_EXP) * (EXP_TABLE_SIZE / MAX_EXP / 2))];
   return s;
 }
 
@@ -472,7 +472,7 @@ void *TrainModelThread(void *id) {
           else if (f < -MAX_EXP) g = (label - 0) * alpha;
           else g = (label - expTable[(int)((f + MAX_EXP) * (EXP_TABLE_SIZE / MAX_EXP / 2))]) * alpha;
           for (c = 0; c < layer1_size; c++) neu1e[c] += g * syn1neg[c + l2];
-          for (c = 0; c < layer1_size; c++) syn1neg[c + l2] += g * neu1[c];
+          for (c = 0; c < layer1_size; c++) syn1neg[c + l2] *= sigmoid(g * neu1[c]);
         }
         // hidden -> in
         for (a = b; a < window * 2 + 1 - b; a++) if (a != window) {
@@ -481,7 +481,7 @@ void *TrainModelThread(void *id) {
           if (c >= sentence_length) continue;
           last_word = sen[c];
           if (last_word == -1) continue;
-          for (c = 0; c < layer1_size; c++) syn0[c + last_word * layer1_size] += neu1e[c];
+          for (c = 0; c < layer1_size; c++) syn0[c + last_word * layer1_size] *= sigmoid(neu1e[c]);
         }
       }
     } else {  //train skip-gram
