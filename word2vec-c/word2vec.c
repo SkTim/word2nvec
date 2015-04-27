@@ -465,19 +465,20 @@ void *TrainModelThread(void *id) {
             target = table[(next_random >> 16) % table_size];
             if (target == 0) target = next_random % (vocab_size - 1) + 1;
             if (target == word) continue;
-            label = 0;
+            label = 0.01;
           }
           l2 = target * layer1_size;
           f = 0;
           real q = 0;
           for (c = 0; c < layer1_size; c++) f += neu1[c] * syn1neg[c + l2];
           if (f > MAX_EXP) q = 1;//g = (label - 1) * alpha;
-          else if (f < -MAX_EXP) q = 0;g = (label - 0) * alpha;
+          else if (f < -MAX_EXP) q = 0;//g = (label - 0) * alpha;
           else q = expTable[(int)((f + MAX_EXP) * (EXP_TABLE_SIZE / MAX_EXP / 2))];
           //g = (label - expTable[(int)((f + MAX_EXP) * (EXP_TABLE_SIZE / MAX_EXP / 2))]) * alpha;
           g = label - q;
           for (c = 0; c < layer1_size; c++) neu1e[c] += g * syn1neg[c + l2];
-          for (c = 0; c < layer1_size; c++) syn1neg[c + l2] *= sigmoid(g * neu1[c]);
+          for (c = 0; c < layer1_size; c++) q_theta[c] += q * sy1neg[c + l2];
+          for (c = 0; c < layer1_size; c++) syn1neg[c + l2] += syn1neg[c + l2] / q * g;
         }
         // hidden -> in
         for (a = b; a < window * 2 + 1 - b; a++) if (a != window) {
@@ -486,7 +487,7 @@ void *TrainModelThread(void *id) {
           if (c >= sentence_length) continue;
           last_word = sen[c];
           if (last_word == -1) continue;
-          for (c = 0; c < layer1_size; c++) syn0[c + last_word * layer1_size] *= sigmoid(neu1e[c]);
+          for (c = 0; c < layer1_size; c++) syn0[c + last_word * layer1_size] += syn0[c + last_word * layer1_size] / q_theta[c] * neu1e[c];
         }
       }
     } else {  //train skip-gram
