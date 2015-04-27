@@ -477,7 +477,7 @@ void *TrainModelThread(void *id) {
           //g = (label - expTable[(int)((f + MAX_EXP) * (EXP_TABLE_SIZE / MAX_EXP / 2))]) * alpha;
           g = label - q;
           for (c = 0; c < layer1_size; c++) neu1e[c] += g * syn1neg[c + l2];
-          for (c = 0; c < layer1_size; c++) q_theta[c] += q * sy1neg[c + l2];
+          for (c = 0; c < layer1_size; c++) q_theta[c] += q * syn1neg[c + l2];
           for (c = 0; c < layer1_size; c++) syn1neg[c + l2] += syn1neg[c + l2] / q * g;
         }
         // hidden -> in
