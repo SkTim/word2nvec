@@ -355,11 +355,11 @@ void InitNet() {
     a = posix_memalign((void **)&syn1neg, 128, (long long)vocab_size * layer1_size * sizeof(real));
     if (syn1neg == NULL) {printf("Memory allocation failed\n"); exit(1);}
     for (a = 0; a < vocab_size; a++) for (b = 0; b < layer1_size; b++)
-     syn1neg[a * layer1_size + b] = 0;
+     syn1neg[a * layer1_size + b] = 0.1;
   }
   for (a = 0; a < vocab_size; a++) for (b = 0; b < layer1_size; b++) {
     next_random = next_random * (unsigned long long)25214903917 + 11;
-    syn0[a * layer1_size + b] = (((next_random & 0xFFFF) / (real)65536) - 0.5) / layer1_size;
+    syn0[a * layer1_size + b] = abs((((next_random & 0xFFFF) / (real)65536) - 0.5) / layer1_size);
   }
   CreateBinaryTree();
 }
@@ -420,7 +420,7 @@ void *TrainModelThread(void *id) {
     }
     word = sen[sentence_position];
     if (word == -1) continue;
-    for (c = 0; c < layer1_size; c++) neu1[c] = 0;
+    for (c = 0; c < layer1_size; c++) neu1[c] = 0.1;
     for (c = 0; c < layer1_size; c++) neu1e[c] = 0;
     next_random = next_random * (unsigned long long)25214903917 + 11;
     b = next_random % window;
