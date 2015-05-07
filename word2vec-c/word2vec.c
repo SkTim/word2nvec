@@ -42,7 +42,7 @@ int *vocab_hash;
 long long vocab_max_size = 1000, vocab_size = 0, layer1_size = 100;
 long long train_words = 0, word_count_actual = 0, iter = 5, file_size = 0, classes = 0;
 real alpha = 0.025, starting_alpha, sample = 1e-3;
-real *syn0, *syn1, *syn1neg, *expTable;
+real *syn0, *syn1, *syn1neg, *expTable, *lTable;
 clock_t start;
 
 int hs = 0, negative = 5;
@@ -353,9 +353,11 @@ void InitNet() {
 	}
 	if (negative>0) {
 		a = posix_memalign((void **)&syn1neg, 128, (long long)vocab_size * layer1_size * sizeof(real));
+		a = posix_mealign((void **)&lTable, 128, (long long)vocab_size * layer1_size * sizeof(real));
 		if (syn1neg == NULL) {printf("Memory allocation failed\n"); exit(1);}
 		for (a = 0; a < vocab_size; a++) for (b = 0; b < layer1_size; b++)
 			syn1neg[a * layer1_size + b] = 0.1;
+			lTable[a * layer1_size + b] = 0;
 	}
 	for (a = 0; a < vocab_size; a++) for (b = 0; b < layer1_size; b++) {
 		next_random = next_random * (unsigned long long)25214903917 + 11;
