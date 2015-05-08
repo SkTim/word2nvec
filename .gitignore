@@ -46,3 +46,6 @@ examples/*.gz
 examples/*.txt
 examples/*.bin
 examples/data/*
+bin/text8.bin
+vectors/vectors
+vectors/top_words

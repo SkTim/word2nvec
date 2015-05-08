@@ -31,4 +31,11 @@ class Analysis():
             index.sort()
             for j in range(len(index)):
                 self.topWords[i].extend(dictionary[index[j]])
-        cPickle.dump(self.topWords,open("top_words",'wb'))
+        #cPickle.dump(self.topWords,open("top_words",'wb'))
+        print "Top Words ok"
+        outHandle = open("words",'w')
+        for i in range(len(self.topWords)):
+            d = len(self.topWords[i])
+            string = ' '.join(self.topWords[i][d - 10:d])
+            outHandle.write(string + '\n')
+        outHandle.close()
