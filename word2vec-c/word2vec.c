@@ -526,13 +526,13 @@ void *TrainModelThread(void *id) {
 					for (c = 0; c < layer1_size; c++) neu1e[c] += g * syn1neg[c + l2];
 					real sum = 0;
 					real norm = 0;
-					for (c = 0; c < layer1_size; c++) sum += syn1neg[c + l2] * syn1neg[c + l2];
+					//for (c = 0; c < layer1_size; c++) sum += syn1neg[c + l2] * syn1neg[c + l2];
 					norm = sqrt(sum);
 					for (c = 0; c < layer1_size; c++){
-						real l_norm = 0;
-						if (norm == 0) l_norm = 0;
-						else l_norm = 0.05 * syn1neg[c + 12] / norm;
-						syn1neg[c + l2] += g * syn0[c + l1] - l_norm;
+						//real l_norm = 0;
+						//if (norm == 0) l_norm = 0;
+						//else l_norm = 0.05 * syn1neg[c + 12] / norm;
+						syn1neg[c + l2] += g * syn0[c + l1] - 0.05;
 						if (syn1neg[c + l2] < 0) syn1neg[c + l2] = 0;
 					}
 				}
