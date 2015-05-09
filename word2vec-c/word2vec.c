@@ -534,6 +534,7 @@ void *TrainModelThread(void *id) {
 						else l_norm = 0.05 * syn1neg[c + 12] / norm;
 						syn1neg[c + l2] += g * syn0[c + l1] - l_norm;
 						if (syn1neg[c + l2] < 0) syn1neg[c + l2] = 0;
+						if (syn1neg[c + l2] > 1) syn1neg[c + l2] = 1;
 					}
 				}
 				// Learn weights input -> hidden
