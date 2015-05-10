@@ -533,7 +533,7 @@ void *TrainModelThread(void *id) {
 					for (c = 0; c < layer1_size; c++){
 						real l_norm = 0;
 						if (norm == 0) l_norm = 0;
-						else l_norm = 0.05 * syn1neg[c + 12] / norm;
+						else l_norm = 0.06 * syn1neg[c + 12] / norm;
 						syn1neg[c + l2] += g * syn0[c + l1] - l_norm;
 						if (syn1neg[c + l2] < 0) syn1neg[c + l2] = 0;
 					}
