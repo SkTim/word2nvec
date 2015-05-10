@@ -354,7 +354,7 @@ void InitNet() {
 	}
 	for (a = 0; a < vocab_size; a++) for (b = 0; b < layer1_size; b++) {
 		next_random = next_random * (unsigned long long)25214903917 + 11;
-		syn0[a * layer1_size + b] = (((next_random & 0xFFFF) / (real)65536) - 0.5) / layer1_size;
+		syn0[a * layer1_size + b] = fabs((((next_random & 0xFFFF) / (real)65536) - 0.5) / layer1_size);
 	}
 	CreateBinaryTree();
 }
