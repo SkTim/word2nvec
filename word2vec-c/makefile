@@ -3,7 +3,7 @@ BIN_DIR=../bin
 
 CC = gcc
 #Using -Ofast instead of -O3 might result in faster code, but is supported only by newer GCC versions
-CFLAGS = -lm -pthread -O3 -Wall -march=native -funroll-loops  -Wno-unused-result
+CFLAGS = -g -lm -pthread -O3 -Wall -march=native -funroll-loops  -Wno-unused-result
 
 all: word2vec word2phrase distance word-analogy compute-accuracy
 

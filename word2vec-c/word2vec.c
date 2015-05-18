@@ -352,6 +352,7 @@ void InitNet() {
 		for (a = 0; a < vocab_size; a++) for (b = 0; b < layer1_size; b++){
 			next_random = next_random * (unsigned long long)25214903917 + 11;
 			syn1neg[a * layer1_size + b] = fabs((((next_random & 0xFFFF) / (real)65536) - 0.5) / layer1_size);
+			if (syn1neg[a * layer1_size + b] < 1e-6) syn1neg[a * layer1_size + b] = 0;
 		}
 	}
 	for (a = 0; a < vocab_size; a++) for (b = 0; b < layer1_size; b++) {
@@ -366,10 +367,12 @@ void *TrainModelThread(void *id) {
 	long long word_count = 0, last_word_count = 0, sen[MAX_SENTENCE_LENGTH + 1];
 	long long l1, l2, c, target, label, local_iter = iter;
 	unsigned long long next_random = (long long)id;
-	real f, g;
+	real f, g,_f,condition,_alpha,_beta,_sigma;
 	clock_t now;
 	real *neu1 = (real *)calloc(layer1_size, sizeof(real));
 	real *neu1e = (real *)calloc(layer1_size, sizeof(real));
+	real *_syn1neg = (real *)calloc(layer1_size, sizeof(real));
+	real *_syn0 = (real *)calloc(layer1_size, sizeof(real));
 	FILE *fi = fopen(train_file, "rb");
 	fseek(fi, file_size / (long long)num_threads * (long long)id, SEEK_SET);
 	while (1) {
@@ -518,31 +521,73 @@ void *TrainModelThread(void *id) {
 						if (target == word) continue;
 						label = 0;
 					}
+					//_alpha = 0.1;
+					//_beta = 0.1;
+					//_sigma = 0.01;
 					l2 = target * layer1_size;
+					//for (c = 0; c < layer1_size; c++) _syn1neg[c] = syn1neg[c + l2];
 					f = 0;
 					for (c = 0; c < layer1_size; c++) f += syn0[c + l1] * syn1neg[c + l2];
 					if (f < 0) continue;
-					if (f > MAX_EXP) g = (label - 1) * alpha;
-					else if (f < -MAX_EXP) g = (label - 0) * alpha;
-					else g = (label - expTable[(int)((f + MAX_EXP) * (EXP_TABLE_SIZE / MAX_EXP / 2))]) * alpha;
+					if (f > MAX_EXP) g = (label - 1);
+					else if (f < -MAX_EXP) g = (label - 0);
+					else g = (label - expTable[(int)((f + MAX_EXP) * (EXP_TABLE_SIZE / MAX_EXP / 2))]);
 					for (c = 0; c < layer1_size; c++) neu1e[c] += g * syn1neg[c + l2];
 					real sum = 0;
 					real norm = 0;
 					for (c = 0; c < layer1_size; c++) sum += syn1neg[c + l2] * syn1neg[c + l2];
 					norm = sqrt(sum);
+					//int satisfied = 0;
+					//while(satisfied != 50){
 					for (c = 0; c < layer1_size; c++){
 						real l_norm = 0;
 						if (norm == 0) l_norm = 0;
 						else l_norm = 0.1 * syn1neg[c + 12] / norm;
-						syn1neg[c + l2] += g * syn0[c + l1] - l_norm;
+						syn1neg[c + l2] += g * alpha * syn0[c + l1] - l_norm;
 						if (syn1neg[c + l2] < 0) syn1neg[c + l2] = 0;
 					}
+					/*
+						_f = 0;
+						for (c = 0; c < layer1_size; c++) _f += syn0[c + l1] * syn1neg[c + l2];
+						condition = 0;
+						for (c = 0; c < layer1_size; c++){
+							condition += _sigma * g * syn0[c + l1] * (syn1neg[c + l2] - _syn1neg[c]);
+						}
+						if (_f - f <= condition) satisfied = 50;
+						else{
+							_alpha *= _beta;
+							for (c = 0; c < layer1_size; c++) syn1neg[c + l2] = _syn1neg[c];
+							satisfied += 1;
+						}
+					}
+					*/
 				}
 				// Learn weights input -> hidden
+				int satisfied = 0;
+				//for (c = 0; c < layer1_size; c++) _syn0[c] = syn0[c + l1];
+				//_alpha = 0.1;
+				//_beta = 0.1;
+				//_sigma = 0.01;
+				//while(satisfied != 50){
 				for (c = 0; c < layer1_size; c++){
-					syn0[c + l1] += neu1e[c];
+					syn0[c + l1] += neu1e[c] * alpha;
 					if (syn0[c + l1] < 0) syn0[c + l1] = 0;
 				}
+				/*
+					real _f = 0;
+					real f = 0;
+					for (c = 0; c < layer1_size; c++) f += syn0[c + l1] * syn1neg[c + l2];
+					for (c = 0; c < layer1_size; c++) _f += _syn0[c] * syn1neg[c + l2];
+					real condition = 0;
+					for (c = 0; c < layer1_size; c++) condition += _sigma * neu1e[c] * (syn0[c + l1] - _syn0[c]);
+					if (f - _f <= condition) satisfied = 50;
+					else{
+						_alpha *= _beta;
+						for (c = 0; c < layer1_size; c++) syn0[c + l1] = _syn0[c];
+						satisfied += 1;
+					}
+				}
+				*/
 			}
 		}
 		sentence_position++;
