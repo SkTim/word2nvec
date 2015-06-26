@@ -34,7 +34,7 @@ struct vocab_word {
 	char *word, *code, codelen;
 };
 
-char train_file[MAX_STRING], output_file[MAX_STRING];
+char train_file[MAX_STRING], output_file[MAX_STRING],output_file2[MAX_STRING];
 char save_vocab_file[MAX_STRING], read_vocab_file[MAX_STRING];
 struct vocab_word *vocab;
 int binary = 0, cbow = 1, debug_mode = 2, window = 5, min_count = 5, num_threads = 12, min_reduce = 1;
@@ -42,7 +42,7 @@ int *vocab_hash;
 long long vocab_max_size = 1000, vocab_size = 0, layer1_size = 100;
 long long train_words = 0, word_count_actual = 0, iter = 5, file_size = 0, classes = 0;
 real alpha = 0.025, starting_alpha, sample = 1e-3;
-real *syn0, *syn1, *syn1neg, *expTable;
+real *syn0, *syn1, *syn1neg, *expTable, *rateTable;
 clock_t start;
 
 int hs = 0, negative = 5;
@@ -350,15 +350,18 @@ void InitNet() {
 		a = posix_memalign((void **)&syn1neg, 128, (long long)vocab_size * layer1_size * sizeof(real));
 		if (syn1neg == NULL) {printf("Memory allocation failed\n"); exit(1);}
 		for (a = 0; a < vocab_size; a++) for (b = 0; b < layer1_size; b++){
-			next_random = next_random * (unsigned long long)25214903917 + 11;
-			syn1neg[a * layer1_size + b] = fabs((((next_random & 0xFFFF) / (real)65536) - 0.5) / layer1_size);
-			if (syn1neg[a * layer1_size + b] < 1e-6) syn1neg[a * layer1_size + b] = 0;
+			//next_random = next_random * (unsigned long long)25214903917 + 11;
+			//syn1neg[a * layer1_size + b] = fabs((((next_random & 0xFFFF) / (real)65536) - 0.5) / layer1_size);
+			//if (syn1neg[a * layer1_size + b] < 1e-6) syn1neg[a * layer1_size + b] = 0;
+			syn1neg[a * layer1_size + b] = 0;
 		}
 	}
 	for (a = 0; a < vocab_size; a++) for (b = 0; b < layer1_size; b++) {
 		next_random = next_random * (unsigned long long)25214903917 + 11;
 		syn0[a * layer1_size + b] = fabs((((next_random & 0xFFFF) / (real)65536) - 0.5) / layer1_size);
 	}
+	a = posix_memalign((void **)&rateTable, 128, (long long)vocab_size * sizeof(real));
+	for (a = 0; a < vocab_size; a++) rateTable[a] = alpha;
 	CreateBinaryTree();
 }
 
@@ -367,7 +370,7 @@ void *TrainModelThread(void *id) {
 	long long word_count = 0, last_word_count = 0, sen[MAX_SENTENCE_LENGTH + 1];
 	long long l1, l2, c, target, label, local_iter = iter;
 	unsigned long long next_random = (long long)id;
-	real f, g,_f,condition,_alpha,_beta,_sigma;
+	real f, g,_f,condition,_alpha,_beta,_sigma,_g;
 	clock_t now;
 	real *neu1 = (real *)calloc(layer1_size, sizeof(real));
 	real *neu1e = (real *)calloc(layer1_size, sizeof(real));
@@ -486,6 +489,7 @@ void *TrainModelThread(void *id) {
 			}
 		} else {  //train skip-gram
 			for (a = b; a < window * 2 + 1 - b; a++) if (a != window) {
+				int w_size = window * 2 + 1 - b;
 				c = sentence_position - window + a;
 				if (c < 0) continue;
 				if (c >= sentence_length) continue;
@@ -521,74 +525,85 @@ void *TrainModelThread(void *id) {
 						if (target == word) continue;
 						label = 0;
 					}
-					//_alpha = 0.1;
-					//_beta = 0.1;
-					//_sigma = 0.01;
 					l2 = target * layer1_size;
-					//for (c = 0; c < layer1_size; c++) _syn1neg[c] = syn1neg[c + l2];
+					//rateTable[target] *= (1 - 100 / (real)(iter * train_words + 1));
+					//if (alpha < starting_alpha * 0.0001) alpha = starting_alpha * 0.0001;
 					f = 0;
-					for (c = 0; c < layer1_size; c++) f += syn0[c + l1] * syn1neg[c + l2];
-					if (f < 0) continue;
+					for (c = 0; c < layer1_size; c++) f += syn0[c + l1] * syn0[c + l2];
+					//if (f < 0 && label == 0) continue;
 					if (f > MAX_EXP) g = (label - 1);
 					else if (f < -MAX_EXP) g = (label - 0);
 					else g = (label - expTable[(int)((f + MAX_EXP) * (EXP_TABLE_SIZE / MAX_EXP / 2))]);
-					for (c = 0; c < layer1_size; c++) neu1e[c] += g * syn1neg[c + l2];
-					real sum = 0;
-					real norm = 0;
-					for (c = 0; c < layer1_size; c++) sum += syn1neg[c + l2] * syn1neg[c + l2];
-					norm = sqrt(sum);
-					//int satisfied = 0;
-					//while(satisfied != 50){
+					for (c = 0; c < layer1_size; c++) neu1e[c] += g * syn0[c + l2];
+					for (c = 0; c < layer1_size; c++) _syn0[c] = syn0[c + l2];
+					int sum = 0;
+					//real norm = 0;
+					//for (c = 0; c < layer1_size; c++) sum += syn1neg[c + l2] * syn1neg[c + l2];
+					//norm = sqrt(sum);
+					int satisfied = 0;
+					real rate = 1;
+					while(satisfied < 10){
+					//real sum = 0;
+					//for (c = 0; c < layer1_size; c++) sum += fabs(syn0[c + l2]);
 					for (c = 0; c < layer1_size; c++){
-						real l_norm = 0;
-						if (norm == 0) l_norm = 0;
-						else l_norm = 0.1 * syn1neg[c + 12] / norm;
-						syn1neg[c + l2] += g * alpha * syn0[c + l1] - l_norm;
-						if (syn1neg[c + l2] < 0) syn1neg[c + l2] = 0;
-					}
-					/*
-						_f = 0;
-						for (c = 0; c < layer1_size; c++) _f += syn0[c + l1] * syn1neg[c + l2];
-						condition = 0;
-						for (c = 0; c < layer1_size; c++){
-							condition += _sigma * g * syn0[c + l1] * (syn1neg[c + l2] - _syn1neg[c]);
-						}
-						if (_f - f <= condition) satisfied = 50;
-						else{
-							_alpha *= _beta;
-							for (c = 0; c < layer1_size; c++) syn1neg[c + l2] = _syn1neg[c];
-							satisfied += 1;
+						//real l_norm = 0;
+						//if (norm == 0) l_norm = 0;
+						//else l_norm = 0.04 * syn1neg[c + 12] / norm;
+						real s = 0;
+						if (syn0[c + l2] == 0) s = 1;
+						syn0[c + l2] += g * rate * rateTable[target] * syn0[c + l1] - 1e-8;
+						if (syn0[c + l2] < 0){
+							syn0[c + l2] = 0;
+							if (s == 0) sum += 1;
 						}
 					}
-					*/
-				}
-				// Learn weights input -> hidden
-				int satisfied = 0;
-				//for (c = 0; c < layer1_size; c++) _syn0[c] = syn0[c + l1];
-				//_alpha = 0.1;
-				//_beta = 0.1;
-				//_sigma = 0.01;
-				//while(satisfied != 50){
-				for (c = 0; c < layer1_size; c++){
-					syn0[c + l1] += neu1e[c] * alpha;
-					if (syn0[c + l1] < 0) syn0[c + l1] = 0;
-				}
-				/*
-					real _f = 0;
-					real f = 0;
-					for (c = 0; c < layer1_size; c++) f += syn0[c + l1] * syn1neg[c + l2];
-					for (c = 0; c < layer1_size; c++) _f += _syn0[c] * syn1neg[c + l2];
-					real condition = 0;
-					for (c = 0; c < layer1_size; c++) condition += _sigma * neu1e[c] * (syn0[c + l1] - _syn0[c]);
-					if (f - _f <= condition) satisfied = 50;
+					if (sum < 5 || satisfied == 10){
+						//printf("1 %d %d\n",sum,satisfied);
+						break;
+					}
 					else{
-						_alpha *= _beta;
-						for (c = 0; c < layer1_size; c++) syn0[c + l1] = _syn0[c];
-						satisfied += 1;
+						sum = 0;
+						for (c = 0; c < layer1_size; c++) syn0[c + l2] = _syn0[c];
+					}
+					satisfied += 1;
+					rate *= 0.6;
+					}
+					rateTable[target] *= (1 - 10 / (real)(iter * train_words + 1));
+					if (rateTable[target] < starting_alpha * 0.0001) rateTable[target] = starting_alpha * 0.0001;
+				}
+				int satisfied = 0;
+				int sum = 0;
+				real rate = 1;
+				for (c = 0; c < layer1_size; c++) _syn0[c] = syn0[c + l1];
+				while(satisfied != 10){
+				//for (c = 0; c < layer1_size; c++) sum += fabs(syn0[c + l1]);
+				for (c = 0; c < layer1_size; c++){
+					//real l_norm1 = 0;
+					//if (norm1 == 0) l_norm1 = 0;
+					//else l_norm1 = 0.04 * syn0[c + l1] / norm1;
+					real s = 0;
+					if (syn0[c + l1] == 0) s = 1;
+					syn0[c + l1] += rate * neu1e[c] * rateTable[last_word] - 1e-8;
+					if (syn0[c + l1] < 0){
+						syn0[c + l1] = 0;
+						if (s == 0) sum += 1;
 					}
 				}
-				*/
+				if (sum < 5 || satisfied == 10){
+					//printf("2 %d %d\n",sum,satisfied);
+					break;
+				}
+				else{
+					sum = 0;
+					for (c = 0; c < layer1_size; c++) syn0[c + l1] = _syn0[c];
+				}
+				satisfied += 1;
+				rate *= 0.6;
+				}
+				rateTable[last_word] *= (1 - 100 / (real)(iter * train_words + 1));
+				if (rateTable[last_word] < starting_alpha * 0.0001) rateTable[last_word] = starting_alpha * 0.0001;
 			}
+				
 		}
 		sentence_position++;
 		if (sentence_position >= sentence_length) {
@@ -604,7 +619,7 @@ void *TrainModelThread(void *id) {
 
 void TrainModel() {
 	long a, b, c, d;
-	FILE *fo;
+	FILE *fo, *fo2;
 	pthread_t *pt = (pthread_t *)malloc(num_threads * sizeof(pthread_t));
 	printf("Starting training using file %s\n", train_file);
 	starting_alpha = alpha;
@@ -617,15 +632,25 @@ void TrainModel() {
 	for (a = 0; a < num_threads; a++) pthread_create(&pt[a], NULL, TrainModelThread, (void *)a);
 	for (a = 0; a < num_threads; a++) pthread_join(pt[a], NULL);
 	fo = fopen(output_file, "wb");
+	fo2 = fopen(output_file2, "wb");
 	if (classes == 0) {
 		// Save the word vectors
 		fprintf(fo, "%lld %lld\n", vocab_size, layer1_size);
+		fprintf(fo2, "%lld %lld\n", vocab_size, layer1_size);
 		for (a = 0; a < vocab_size; a++) {
 			fprintf(fo, "%s ", vocab[a].word);
 			if (binary) for (b = 0; b < layer1_size; b++) fwrite(&syn0[a * layer1_size + b], sizeof(real), 1, fo);
 			else for (b = 0; b < layer1_size; b++) fprintf(fo, "%lf ", syn0[a * layer1_size + b]);
 			fprintf(fo, "\n");
 		}
+		
+		for (a = 0; a < vocab_size; a++){
+			fprintf(fo2, "%s ", vocab[a].word);
+			if (binary) for (b = 0; b < layer1_size; b++) fwrite(&syn1neg[a * layer1_size + b], sizeof(real), 1, fo2);
+			else for (b = 0; b < layer1_size; b++) fprintf(fo2, "%lf ", syn1neg[a * layer1_size + b]);
+			fprintf(fo2, "\n");
+		}
+		
 	} else {
 		// Run K-means on the word vectors
 		int clcn = classes, iter = 10, closeid;
@@ -743,6 +768,7 @@ int main(int argc, char **argv) {
 	if (cbow) alpha = 0.05;
 	if ((i = ArgPos((char *)"-alpha", argc, argv)) > 0) alpha = atof(argv[i + 1]);
 	if ((i = ArgPos((char *)"-output", argc, argv)) > 0) strcpy(output_file, argv[i + 1]);
+	if ((i = ArgPos((char *)"-output2", argc, argv)) > 0) strcpy(output_file2, argv[i + 1]);
 	if ((i = ArgPos((char *)"-window", argc, argv)) > 0) window = atoi(argv[i + 1]);
 	if ((i = ArgPos((char *)"-sample", argc, argv)) > 0) sample = atof(argv[i + 1]);
 	if ((i = ArgPos((char *)"-hs", argc, argv)) > 0) hs = atoi(argv[i + 1]);

@@ -2,6 +2,7 @@
 #2015.4
 
 import cPickle
+import random
 
 class Analysis():
     def __init__(self):
@@ -9,13 +10,13 @@ class Analysis():
         self.words = self.vectors.keys()
         self.scale = len(self.vectors[self.words[0]])
         self.dimensions = {}
-        self.topWords = {}
 
     def dimension_analysis(self):
+        self.topWords = {}
         for i in range(self.scale):
             self.dimensions[i] = {}
         for i in range(len(self.words)):
-            vector = self.vectors[self.words[i]]
+            vector = list(self.vectors[self.words[i]])
             for j in range(len(vector)):
                 if vector[j] > 0:
                     self.dimensions[j][self.words[i]] = vector[j]
@@ -31,11 +32,15 @@ class Analysis():
             index.sort()
             for j in range(len(index)):
                 self.topWords[i].extend(dictionary[index[j]])
-        #cPickle.dump(self.topWords,open("top_words",'wb'))
         print "Top Words ok"
         outHandle = open("words",'w')
         for i in range(len(self.topWords)):
             d = len(self.topWords[i])
-            string = ' '.join(self.topWords[i][d - 10:d])
+            words = self.topWords[i][d - 5:d]
+            location = int(5 * random.random())
+            words.insert(location,self.topWords[i][0])
+            words.append(str(location))
+            string = ' '.join(words)
             outHandle.write(string + '\n')
         outHandle.close()
+        print "Data Ready"
