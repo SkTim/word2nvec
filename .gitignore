@@ -49,3 +49,5 @@ examples/data/*
 bin/text8.bin
 vectors/vectors
 vectors/top_words
+
+word2vec.pdf
