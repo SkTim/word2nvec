@@ -7,7 +7,7 @@ This tool provide a method of interpretable word embeddings, which is based on O
 
 ####Data
 * text8 corpus from word2vec website: https://code.google.com/p/word2vec/
-* Test datasets on wordvectors.org
+* Test datasets on http://wordvectors.org
 
 
 ####Word Similarty Task
